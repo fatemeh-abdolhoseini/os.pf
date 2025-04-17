@@ -4,6 +4,7 @@
 #include "user/user.h"
 #include "kernel/fcntl.h"
 
+
 // Parsed command representation
 #define EXEC  1
 #define REDIR 2
@@ -54,82 +55,110 @@ void panic(char*);
 struct cmd *parsecmd(char*);
 void runcmd(struct cmd*) __attribute__((noreturn));
 
-// Execute cmd.  Never returns.
 void
 runcmd(struct cmd *cmd)
 {
-  int p[2];
-  struct backcmd *bcmd;
-  struct execcmd *ecmd;
-  struct listcmd *lcmd;
-  struct pipecmd *pcmd;
-  struct redircmd *rcmd;
-
-  if(cmd == 0)
-    exit(1);
-
-  switch(cmd->type){
-  default:
-    panic("runcmd");
-
-  case EXEC:
-    ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
-      exit(1);
-    exec(ecmd->argv[0], ecmd->argv);
-    fprintf(2, "exec %s failed\n", ecmd->argv[0]);
-    break;
-
-  case REDIR:
-    rcmd = (struct redircmd*)cmd;
-    close(rcmd->fd);
-    if(open(rcmd->file, rcmd->mode) < 0){
-      fprintf(2, "open %s failed\n", rcmd->file);
-      exit(1);
-    }
-    runcmd(rcmd->cmd);
-    break;
-
-  case LIST:
-    lcmd = (struct listcmd*)cmd;
-    if(fork1() == 0)
-      runcmd(lcmd->left);
-    wait(0);
-    runcmd(lcmd->right);
-    break;
-
-  case PIPE:
-    pcmd = (struct pipecmd*)cmd;
-    if(pipe(p) < 0)
-      panic("pipe");
-    if(fork1() == 0){
-      close(1);
-      dup(p[1]);
-      close(p[0]);
-      close(p[1]);
-      runcmd(pcmd->left);
-    }
-    if(fork1() == 0){
-      close(0);
-      dup(p[0]);
-      close(p[0]);
-      close(p[1]);
-      runcmd(pcmd->right);
-    }
-    close(p[0]);
-    close(p[1]);
-    wait(0);
-    wait(0);
-    break;
-
-  case BACK:
-    bcmd = (struct backcmd*)cmd;
-    if(fork1() == 0)
-      runcmd(bcmd->cmd);
-    break;
-  }
-  exit(0);
+int p[2];
+struct backcmd *bcmd;
+struct execcmd *ecmd;
+struct listcmd *lcmd;
+struct pipecmd *pcmd;
+struct redircmd *rcmd;
+if(cmd == 0)
+exit(1);
+switch(cmd->type){
+default:
+panic("runcmd");
+case EXEC:
+ecmd = (struct execcmd *)cmd;
+if (ecmd->argv[0] == 0)
+exit(1);
+// Check if the command is "!"
+if (ecmd->argv[0] && strcmp(ecmd->argv[0], "!") == 0) {
+char buffer[513] = {0};
+int total_len = 0;
+// Concatenate arguments into the buffer
+for (int i = 1; ecmd->argv[i]; i++) {
+int arg_len = strlen(ecmd->argv[i]);
+// Check if adding this argument would exceed buffer size
+if (total_len + arg_len + 1 >= 513) {
+printf("message too long\n");
+exit(0);
 }
+// Copy argument into buffer
+memmove(buffer + total_len, ecmd->argv[i], arg_len);
+total_len += arg_len;
+// Add a space if there is a next argument
+if (ecmd->argv[i + 1]) {
+buffer[total_len++] = ' ';
+}
+}
+// Process the gathered message in the buffer
+for (int i = 0; i < total_len; i++) {
+// Check for "os" and color it
+if (i < total_len - 1 && buffer[i] == 'o' && buffer[i + 1] == 's')
+{
+printf("\033[0;34mos\033[0m");
+i++; // Skip the next 's'
+} else {
+write(1, &buffer[i], 1); // Write each character
+}
+}
+printf("\n");
+exit(0);
+}
+// Execute the command if it's not "!"
+exec(ecmd->argv[0], ecmd->argv);
+fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+break;
+case REDIR:
+rcmd = (struct redircmd*)cmd;
+close(rcmd->fd);
+if(open(rcmd->file, rcmd->mode) < 0){
+fprintf(2, "open %s failed\n", rcmd->file);
+exit(1);
+}
+runcmd(rcmd->cmd);
+break;
+case LIST:
+lcmd = (struct listcmd*)cmd;
+if(fork1() == 0)
+runcmd(lcmd->left);
+wait(0);
+runcmd(lcmd->right);
+break;
+case PIPE:
+pcmd = (struct pipecmd*)cmd;
+if(pipe(p) < 0)
+panic("pipe");
+if(fork1() == 0){
+close(1);
+dup(p[1]);
+close(p[0]);
+close(p[1]);
+runcmd(pcmd->left);
+}
+if(fork1() == 0){
+close(0);
+dup(p[0]);
+close(p[0]);
+close(p[1]);
+runcmd(pcmd->right);
+}
+close(p[0]);
+close(p[1]);
+wait(0);
+wait(0);
+break;
+case BACK:
+bcmd = (struct backcmd*)cmd;
+if(fork1() == 0)
+runcmd(bcmd->cmd);
+break;
+}
+exit(0);
+}
+<<<<<<< HEAD
 
 int getcmd(char *buf, int nbuf) {
     write(2, "$parastoo-fatemeh ", 18); 
@@ -137,6 +166,17 @@ int getcmd(char *buf, int nbuf) {
     if(buf[0] == 0)
         return -1;
     return 0;
+=======
+int
+getcmd(char *buf, int nbuf)
+{
+  write(2, "$parastoo-fatemeh ", 18);
+  memset(buf, 0, nbuf);
+  gets(buf, nbuf);
+  if(buf[0] == 0) // EOF
+    return -1;
+  return 0;
+>>>>>>> task-2
 }
 
 int
