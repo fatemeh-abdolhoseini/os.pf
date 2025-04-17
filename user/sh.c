@@ -131,15 +131,12 @@ runcmd(struct cmd *cmd)
   exit(0);
 }
 
-int
-getcmd(char *buf, int nbuf)
-{
-  write(2, "$parastoo-fatemeh ", 18);
-  memset(buf, 0, nbuf);
-  gets(buf, nbuf);
-  if(buf[0] == 0) // EOF
-    return -1;
-  return 0;
+int getcmd(char *buf, int nbuf) {
+    write(2, "$parastoo-fatemeh ", 18); 
+    gets(buf, nbuf);
+    if(buf[0] == 0)
+        return -1;
+    return 0;
 }
 
 int

@@ -1,12 +1,11 @@
 #include "types.h"
 #include "riscv.h"
 #include "defs.h"
-#include "logger.h"
-
+#include "custom_logger.h"
 void log_message(log_level_t level, const char *message) {
     switch (level) {
         case LOG_INFO:
-            printf("[INFO] %s\n", message);
+               printf("\033[0;32m[INFO] %s\033[0m\n", message);
             break;
         case LOG_WARNING:
             printf("\033[33m[WARNING] %s\033[0m\n", message); // رنگ زرد
