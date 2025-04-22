@@ -54,63 +54,56 @@ int fork1(void);  // Fork but panics on failure.
 void panic(char*);
 struct cmd *parsecmd(char*);
 void runcmd(struct cmd*) __attribute__((noreturn));
-
 void
 runcmd(struct cmd *cmd)
 {
-int p[2];
-struct backcmd *bcmd;
-struct execcmd *ecmd;
-struct listcmd *lcmd;
-struct pipecmd *pcmd;
-struct redircmd *rcmd;
-if(cmd == 0)
-exit(1);
-switch(cmd->type){
-default:
-panic("runcmd");
-case EXEC:
-ecmd = (struct execcmd *)cmd;
-if (ecmd->argv[0] == 0)
-exit(1);
-// Check if the command is "!"
-if (ecmd->argv[0] && strcmp(ecmd->argv[0], "!") == 0) {
-char buffer[513] = {0};
-int total_len = 0;
-// Concatenate arguments into the buffer
-for (int i = 1; ecmd->argv[i]; i++) {
-int arg_len = strlen(ecmd->argv[i]);
-// Check if adding this argument would exceed buffer size
-if (total_len + arg_len + 1 >= 513) {
-printf("message too long\n");
-exit(0);
-}
-// Copy argument into buffer
-memmove(buffer + total_len, ecmd->argv[i], arg_len);
-total_len += arg_len;
-// Add a space if there is a next argument
-if (ecmd->argv[i + 1]) {
-buffer[total_len++] = ' ';
-}
-}
-// Process the gathered message in the buffer
-for (int i = 0; i < total_len; i++) {
-// Check for "os" and color it
-if (i < total_len - 1 && buffer[i] == 'o' && buffer[i + 1] == 's')
-{
-printf("\033[0;34mos\033[0m");
-i++; // Skip the next 's'
-} else {
-write(1, &buffer[i], 1); // Write each character
-}
-}
-printf("\n");
-exit(0);
-}
-// Execute the command if it's not "!"
-exec(ecmd->argv[0], ecmd->argv);
-fprintf(2, "exec %s failed\n", ecmd->argv[0]);
-break;
+    int p[2];
+    struct backcmd *bcmd;
+    struct execcmd *ecmd;
+    struct listcmd *lcmd;
+    struct pipecmd *pcmd;
+    struct redircmd *rcmd;
+
+    if(cmd == 0)
+        exit(1);
+
+    switch(cmd->type){
+    default:
+        panic("runcmd");
+    
+    case EXEC:
+        ecmd = (struct execcmd*)cmd;
+        if(ecmd->argv[0] == 0)
+            exit(1);
+        
+        // Check if the command is "!"
+        if(ecmd->argv[0] && strcmp(ecmd->argv[0], "!") == 0) {
+            // Process each argument
+            for(int i = 1; ecmd->argv[i]; i++) {
+                char* arg = ecmd->argv[i];
+                // Process each character in the argument
+                for(int j = 0; arg[j]; j++) {
+                    // Check for "os" pattern
+                    if(arg[j] == 'o' && arg[j+1] == 's') {
+                        printf("\033[0;34mos\033[0m");
+                        j++; // skip the 's'
+                    } else {
+                        write(1, &arg[j], 1);
+                    }
+                }
+                // Add space between arguments (but not after last one)
+                if(ecmd->argv[i+1]) {
+                    write(1, " ", 1);
+                }
+            }
+            printf("\n");
+            exit(0);
+        }
+        
+        // Execute the command if it's not "!"
+        exec(ecmd->argv[0], ecmd->argv);
+        fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+        break;
 case REDIR:
 rcmd = (struct redircmd*)cmd;
 close(rcmd->fd);
@@ -158,15 +151,13 @@ break;
 }
 exit(0);
 }
-int
-getcmd(char *buf, int nbuf)
-{
-  write(2, "$parastoo-fatemeh ", 18);
-  memset(buf, 0, nbuf);
-  gets(buf, nbuf);
-  if(buf[0] == 0) // EOF
-    return -1;
-  return 0;
+
+int getcmd(char *buf, int nbuf) {
+    write(2, "$parastoo-fatemeh ", 18); 
+    gets(buf, nbuf);
+    if(buf[0] == 0)
+        return -1;
+    return 0;
 }
 
 int
