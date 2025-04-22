@@ -4,6 +4,7 @@
 #include "user/user.h"
 #include "kernel/fcntl.h"
 
+
 // Parsed command representation
 #define EXEC  1
 #define REDIR 2
@@ -53,82 +54,102 @@ int fork1(void);  // Fork but panics on failure.
 void panic(char*);
 struct cmd *parsecmd(char*);
 void runcmd(struct cmd*) __attribute__((noreturn));
-
-// Execute cmd.  Never returns.
 void
 runcmd(struct cmd *cmd)
 {
-  int p[2];
-  struct backcmd *bcmd;
-  struct execcmd *ecmd;
-  struct listcmd *lcmd;
-  struct pipecmd *pcmd;
-  struct redircmd *rcmd;
+    int p[2];
+    struct backcmd *bcmd;
+    struct execcmd *ecmd;
+    struct listcmd *lcmd;
+    struct pipecmd *pcmd;
+    struct redircmd *rcmd;
 
-  if(cmd == 0)
-    exit(1);
+    if(cmd == 0)
+        exit(1);
 
-  switch(cmd->type){
-  default:
-    panic("runcmd");
-
-  case EXEC:
-    ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
-      exit(1);
-    exec(ecmd->argv[0], ecmd->argv);
-    fprintf(2, "exec %s failed\n", ecmd->argv[0]);
-    break;
-
-  case REDIR:
-    rcmd = (struct redircmd*)cmd;
-    close(rcmd->fd);
-    if(open(rcmd->file, rcmd->mode) < 0){
-      fprintf(2, "open %s failed\n", rcmd->file);
-      exit(1);
-    }
-    runcmd(rcmd->cmd);
-    break;
-
-  case LIST:
-    lcmd = (struct listcmd*)cmd;
-    if(fork1() == 0)
-      runcmd(lcmd->left);
-    wait(0);
-    runcmd(lcmd->right);
-    break;
-
-  case PIPE:
-    pcmd = (struct pipecmd*)cmd;
-    if(pipe(p) < 0)
-      panic("pipe");
-    if(fork1() == 0){
-      close(1);
-      dup(p[1]);
-      close(p[0]);
-      close(p[1]);
-      runcmd(pcmd->left);
-    }
-    if(fork1() == 0){
-      close(0);
-      dup(p[0]);
-      close(p[0]);
-      close(p[1]);
-      runcmd(pcmd->right);
-    }
-    close(p[0]);
-    close(p[1]);
-    wait(0);
-    wait(0);
-    break;
-
-  case BACK:
-    bcmd = (struct backcmd*)cmd;
-    if(fork1() == 0)
-      runcmd(bcmd->cmd);
-    break;
-  }
-  exit(0);
+    switch(cmd->type){
+    default:
+        panic("runcmd");
+    
+    case EXEC:
+        ecmd = (struct execcmd*)cmd;
+        if(ecmd->argv[0] == 0)
+            exit(1);
+        
+        // Check if the command is "!"
+        if(ecmd->argv[0] && strcmp(ecmd->argv[0], "!") == 0) {
+            // Process each argument
+            for(int i = 1; ecmd->argv[i]; i++) {
+                char* arg = ecmd->argv[i];
+                // Process each character in the argument
+                for(int j = 0; arg[j]; j++) {
+                    // Check for "os" pattern
+                    if(arg[j] == 'o' && arg[j+1] == 's') {
+                        printf("\033[0;34mos\033[0m");
+                        j++; // skip the 's'
+                    } else {
+                        write(1, &arg[j], 1);
+                    }
+                }
+                // Add space between arguments (but not after last one)
+                if(ecmd->argv[i+1]) {
+                    write(1, " ", 1);
+                }
+            }
+            printf("\n");
+            exit(0);
+        }
+        
+        // Execute the command if it's not "!"
+        exec(ecmd->argv[0], ecmd->argv);
+        fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+        break;
+case REDIR:
+rcmd = (struct redircmd*)cmd;
+close(rcmd->fd);
+if(open(rcmd->file, rcmd->mode) < 0){
+fprintf(2, "open %s failed\n", rcmd->file);
+exit(1);
+}
+runcmd(rcmd->cmd);
+break;
+case LIST:
+lcmd = (struct listcmd*)cmd;
+if(fork1() == 0)
+runcmd(lcmd->left);
+wait(0);
+runcmd(lcmd->right);
+break;
+case PIPE:
+pcmd = (struct pipecmd*)cmd;
+if(pipe(p) < 0)
+panic("pipe");
+if(fork1() == 0){
+close(1);
+dup(p[1]);
+close(p[0]);
+close(p[1]);
+runcmd(pcmd->left);
+}
+if(fork1() == 0){
+close(0);
+dup(p[0]);
+close(p[0]);
+close(p[1]);
+runcmd(pcmd->right);
+}
+close(p[0]);
+close(p[1]);
+wait(0);
+wait(0);
+break;
+case BACK:
+bcmd = (struct backcmd*)cmd;
+if(fork1() == 0)
+runcmd(bcmd->cmd);
+break;
+}
+exit(0);
 }
 
 int getcmd(char *buf, int nbuf) {
